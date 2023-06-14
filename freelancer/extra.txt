@@ -1,0 +1,112 @@
+# Dockerfile for building the Docker image for your microservices
+
+# Stage 1: Build the fl-eureka image
+FROM openjdk:17 AS builder-eureka   
+ARG JAR_PATH
+COPY ${JAR_PATH} /app/eureka.jar
+
+# Stage 2: Build the fl-project-service image
+FROM openjdk:17 AS builder-project
+ARG JAR_PATH
+COPY ${JAR_PATH} /app/project.jar
+
+# Stage 3: Build the fl-skill image
+FROM openjdk:17 AS builder-skill
+ARG JAR_PATH
+COPY ${JAR_PATH} /app/skill.jar
+
+# Stage 4: Build the fl-apiGateway image
+FROM openjdk:17 AS builder-apigateway
+ARG JAR_PATH
+COPY ${JAR_PATH} /app/apigateway.jar
+
+# Stage 5: Create the final runtime images
+FROM openjdk:17
+
+# Copy the fl-eureka JAR file to the image
+COPY --from=builder-eureka /app/eureka.jar /app/eureka.jar
+
+# Copy the fl-project-service JAR file to the image
+COPY --from=builder-project /app/project.jar /app/project.jar
+
+# Copy the fl-skill JAR file to the image
+COPY --from=builder-skill /app/skill.jar /app/skill.jar
+
+# Copy the fl-apiGateway JAR file to the image
+COPY --from=builder-apigateway /app/apigateway.jar /app/apigateway.jar
+
+# Set the startup commands for each microservice
+CMD ["java", "-jar", "/app/eureka.jar"]
+CMD ["java", "-jar", "/app/project.jar"]
+CMD ["java", "-jar", "/app/skill.jar"]
+CMD ["java", "-jar", "/app/apigateway.jar"]
+
+
+
+compose file 
+version: '3'
+
+services:
+  eureka:
+    image: eurekaimage
+    ports:
+      - 8761:8761
+    networks:
+      - freelancer-nw
+
+  project-service:
+    image: projectimage
+    depends_on:
+      - eureka
+    ports:
+      - 8083:8083
+    networks:
+      - freelancer-nw
+
+  skill-service:
+    image: skillimage
+    depends_on:
+      - eureka
+    ports:
+      - 8082:8082
+    networks:
+      - freelancer-nw
+
+  gateway-service:
+    image: gatewayimage
+    depends_on:
+      - eureka
+    ports:
+      - 8085:8085
+    networks:
+      - freelancer-nw
+
+  db:
+    image: mysql:5.7
+    ports:
+      - 3306:3306
+    environment:
+      # - PMA_HOST=fl_bid,fl_projects,fl_skills,fl_users
+      MYSQL_ROOT_PASSWORD: 
+      MYSQL_DATABASE: fl_bid,fl_projects,fl_skills,fl_users
+      MYSQL_USER: root
+      MYSQL_PASSWORD:
+    networks:
+      - freelancer-nw
+
+  apache:
+    image: php:7.2.2-apache
+    container_name: php_web
+    depends_on:
+      - db
+    volumes:
+      - ./php/:/var/www/html/
+    ports:
+      - "8080:80"
+    stdin_open: true
+    tty: true
+    networks:
+      - freelancer-nw
+
+networks:
+  freelancer-nw:

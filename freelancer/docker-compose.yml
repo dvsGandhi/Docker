@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  eureka:
+    image: eurekaimage
+    ports:
+      - 8761:8761
+
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: dvs
+      MYSQL_PASSWORD: dvs
+    volumes:
+      - ./data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --datadir=/var/lib/mysql --init-file /docker-entrypoint-initdb.d/init.sql
+    ports:
+      - 3306:3306
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+    ports:
+      - 8080:80
+    depends_on:
+      - db
+      - eureka
+
+  skill-service:
+    image: skillimage
+    restart: always
+    ports:
+      - 8082:8082
+    depends_on:
+      - db
+      - eureka
+
+  project-service:
+    image: projectimage
+    restart: always
+    ports:
+      - 8083:8083
+    depends_on:
+      - db
+
+  user-service:
+    image: userimage
+    restart: always
+    ports:
+      - 8081:8081
+    depends_on:
+      - db
+
+  bid-service:
+    image: bidimage
+    restart: always
+    ports:
+      - 8084:8084
+    depends_on:
+      - db
